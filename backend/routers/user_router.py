@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Response
 
-from schemas.api_models import PreferredSemesterPydantic, UserPydantic
+from schemas.api_models import PreferredSemesterPydantic, UserPydantic, UserProfileUpdatePydantic
 from services import user_service
 
 router = APIRouter(prefix="/api", tags=["Users"])
@@ -13,12 +13,15 @@ async def add_user(user: UserPydantic):
 
 
 @router.delete('/user')
-async def delete_user(request: Request):
-    """Delete the currently logged-in user."""
+async def delete_user(request: Request, payload: UserDeletePydantic):
+    """Delete the currently logged-in user after password verification."""
     if 'user' not in request.session:
         return Response("Not authorized", status_code=403)
     user_id = request.session['user']['user_id']
-    return user_service.delete_current_user(user_id)
+    result = user_service.delete_current_user(user_id, payload.password)
+    if result.get("success"):
+        request.session.clear()
+    return result
 
 
 @router.put('/user/preferred-semester')
@@ -28,3 +31,12 @@ async def set_preferred_semester(request: Request, payload: PreferredSemesterPyd
         return Response("Not authorized", status_code=403)
     user_id = request.session['user']['user_id']
     return user_service.update_preferred_semester(user_id, payload.preferred_semester)
+
+
+@router.put('/user/profile')
+async def update_user_profile(request: Request, payload: UserProfileUpdatePydantic):
+    """Update the current user's profile (name, major, degree, phone)."""
+    if 'user' not in request.session:
+        return Response("Not authorized", status_code=403)
+    user_id = request.session['user']['user_id']
+    return user_service.update_user_profile(user_id, payload.dict(exclude_unset=True))

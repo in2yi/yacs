@@ -1,6 +1,6 @@
 from models import SessionLocal
 from models.user import User
-from services.password_service import hash_password
+from services.password_service import hash_password, verify_password
 
 
 def create_user(user_data: dict):
@@ -42,17 +42,20 @@ def create_user(user_data: dict):
         db.close()
 
 
-def delete_current_user(user_id: int):
-    """Delete a user by ID."""
+def delete_current_user(user_id: int, password: str):
+    """Delete a user account after verifying their password."""
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.id == user_id).first()
         if user is None:
             return {"success": False, "status": "error", "message": "User not found."}
 
+        if not verify_password(password, user.password_hash):
+            return {"success": False, "status": "error", "message": "Invalid password. Account not deleted."}
+
         db.delete(user)
         db.commit()
-        return {"success": True, "status": "success", "message": "User deleted."}
+        return {"success": True, "status": "success", "message": "Account deleted successfully."}
     finally:
         db.close()
 
@@ -97,6 +100,39 @@ def list_users():
                 }
                 for user in users
             ],
+        }
+    finally:
+        db.close()
+
+
+def update_user_profile(user_id: int, updates: dict):
+    """Update user profile fields (name, major, degree, phone)."""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user is None:
+            return {"success": False, "status": "error", "message": "User not found."}
+
+        # Only allow updating these fields
+        allowed_fields = {"name", "major", "degree", "phone"}
+        for field, value in updates.items():
+            if field not in allowed_fields:
+                continue
+            if value is not None:
+                setattr(user, field, str(value).strip() or getattr(user, field))
+
+        db.commit()
+        return {
+            "success": True,
+            "status": "success",
+            "message": "Profile updated successfully.",
+            "user": {
+                "user_id": user.id,
+                "name": user.name,
+                "major": user.major,
+                "degree": user.degree,
+                "phone": user.phone,
+            },
         }
     finally:
         db.close()

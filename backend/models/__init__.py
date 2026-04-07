@@ -7,3 +7,4 @@ from .course_prerequisite import CoursePrerequisite
 from .course_corequisite import CourseCorequisite
 from .user_session import UserSession
 from .user import User
+from .login_activity import LoginActivity

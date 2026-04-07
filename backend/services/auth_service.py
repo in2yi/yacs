@@ -5,6 +5,7 @@ from time import monotonic
 
 from models import SessionLocal
 from models.user import User
+from models.login_activity import LoginActivity
 from services.password_service import hash_password, needs_rehash, verify_password
 
 
@@ -58,6 +59,25 @@ def _is_locked(key: str) -> bool:
     return now < float(state["locked_until"])
 
 
+def _log_activity(user_id: int, action: str, ip_address: str | None = None, user_agent: str | None = None) -> None:
+    """Record a login or logout activity."""
+    db = SessionLocal()
+    try:
+        activity = LoginActivity(
+            user_id=user_id,
+            action=action,
+            timestamp=datetime.now(timezone.utc),
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        db.add(activity)
+        db.commit()
+    except Exception as err:
+        print(f"Failed to log activity: {err}")
+    finally:
+        db.close()
+
+
 def log_user_in(credentials: dict, session: dict, client_ip: str | None = None):
     """Log a user in by verifying database credentials and writing session state."""
     email = _normalize_email(credentials.get("email", ""))
@@ -97,6 +117,7 @@ def log_user_in(credentials: dict, session: dict, client_ip: str | None = None):
             db.commit()
 
         _reset_attempts(throttle_key)
+        _log_activity(user.id, "login", ip_address=client_ip)
         return {
             "success": True,
             "status": "success",
@@ -116,7 +137,10 @@ def log_user_in(credentials: dict, session: dict, client_ip: str | None = None):
 def log_user_out(session: dict):
     """Log a user out by clearing session state."""
     if "user" in session:
+        user_id = session["user"].get("user_id")
         session.clear()
+        if user_id:
+            _log_activity(user_id, "logout")
         return {"success": True, "status": "success", "message": "Logout successful."}
     return {"success": False, "status": "error", "code": "no_active_session", "message": "No active session."}
 

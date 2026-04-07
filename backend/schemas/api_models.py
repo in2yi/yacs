@@ -35,11 +35,16 @@ class UserPydantic(BaseModel):
 class PreferredSemesterPydantic(BaseModel):
     preferred_semester: str
 
+class UserProfileUpdatePydantic(BaseModel):
+    name: Optional[str] = None
+    major: Optional[str] = None
+    degree: Optional[str] = None
+    phone: Optional[str] = None
+
 class RoleUpdatePydantic(BaseModel):
     role: Literal["user", "admin"]
 
 class UserDeletePydantic(BaseModel):
-    sessionID: str
     password: str
 
 class UserCoursePydantic(BaseModel):
