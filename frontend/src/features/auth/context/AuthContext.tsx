@@ -213,7 +213,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (response.statusCode === 401) {
-        setError("Invalid email or password.");
+        if (response.code === "user_not_found") {
+          setError(response.message ?? "No account found with this email. Would you like to sign up?");
+        } else {
+          setError(response.message ?? "Invalid email or password.");
+        }
         return false;
       }
 

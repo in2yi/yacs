@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 from contextlib import asynccontextmanager
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -32,6 +33,11 @@ app = FastAPI(lifespan=lifespan)
 
 # --- Add Middleware ---
 secrets = load_secrets()
+
+# Determine allowed origins based on environment
+allowed_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
+allowed_origins = [origin.strip() for origin in allowed_origins]
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=secrets.get("SECRET_KEY", "dev_secret_key"),
@@ -42,7 +48,7 @@ app.add_middleware(
 app.add_middleware(AdminMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

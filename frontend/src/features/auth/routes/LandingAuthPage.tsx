@@ -1,18 +1,8 @@
 import React, { FormEvent, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
 type AuthMode = "login" | "signup";
-
-const SIGNUP_SEMESTERS = [
-  "Fall 2025",
-  "Spring 2026",
-  "Summer 2026",
-  "Fall 2026",
-  "Spring 2027",
-  "Summer 2027",
-  "Fall 2027",
-];
 
 export default function LandingAuthPage() {
   const navigate = useNavigate();
@@ -30,7 +20,7 @@ export default function LandingAuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [preferredSemester, setPreferredSemester] = useState(SIGNUP_SEMESTERS[0]);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -40,16 +30,45 @@ export default function LandingAuthPage() {
 
   useEffect(() => {
     clearError();
+    setEmailError(null);
   }, [mode, clearError]);
+
+  const validateEmail = (emailValue: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailValue.trim()) {
+      setEmailError("Email is required.");
+      return false;
+    }
+    if (!emailRegex.test(emailValue)) {
+      setEmailError("Please enter a valid email address.");
+      return false;
+    }
+    setEmailError(null);
+    return true;
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (value.trim()) {
+      validateEmail(value);
+    } else {
+      setEmailError(null);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    
+    if (!validateEmail(email)) {
+      return;
+    }
+
     console.log("Form submitted, mode:", mode);
 
     const success =
       mode === "login"
         ? await login({ email, password })
-        : await signup({ name, email, password, preferredSemester });
+        : await signup({ name, email, password });
 
     console.log("Signup/login result:", success);
     if (success) {
@@ -114,32 +133,16 @@ export default function LandingAuthPage() {
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               {mode === "signup" && (
-                <>
-                  <label className="block space-y-1.5">
-                    <span className="text-sm font-medium">Full name</span>
-                    <input
-                      value={name}
-                      onChange={(event) => setName(event.target.value)}
-                      placeholder="Jane Doe"
-                      className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
-                      required
-                    />
-                  </label>
-                  <label className="block space-y-1.5">
-                    <span className="text-sm font-medium">Preferred semester</span>
-                    <select
-                      value={preferredSemester}
-                      onChange={(event) => setPreferredSemester(event.target.value)}
-                      className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
-                    >
-                      {SIGNUP_SEMESTERS.map((semester) => (
-                        <option key={semester} value={semester}>
-                          {semester}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium">Full name</span>
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Jane Doe"
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
+                    required
+                  />
+                </label>
               )}
 
               <label className="block space-y-1.5">
@@ -147,11 +150,14 @@ export default function LandingAuthPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => handleEmailChange(event.target.value)}
                   placeholder="you@school.edu"
                   className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
                   required
                 />
+                {emailError && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">{emailError}</p>
+                )}
               </label>
 
               <label className="block space-y-1.5">
@@ -180,22 +186,37 @@ export default function LandingAuthPage() {
             </form>
 
             {error && (
-              <p className="mt-3 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-                {error}
-              </p>
+              <div className="mt-3 space-y-3">
+                <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+                  {error}
+                </p>
+                {mode === "login" && (
+                  <p className="text-xs text-center text-input-foreground/70">
+                    Don't have an account?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setMode("signup")}
+                      className="text-blue-500 hover:text-blue-400 font-semibold"
+                    >
+                      Sign up here
+                    </button>
+                  </p>
+                )}
+              </div>
             )}
 
-            <p className="mt-4 text-center text-xs text-input-foreground/80">
-              By continuing, you agree to our{" "}
-              <Link to="/app" className="underline hover:no-underline">
-                terms
-              </Link>{" "}
-              and{" "}
-              <Link to="/app" className="underline hover:no-underline">
-                privacy policy
-              </Link>
-              .
-            </p>
+            {!error && mode === "login" && (
+              <p className="mt-4 text-center text-xs text-input-foreground/70">
+                Don't have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => setMode("signup")}
+                  className="text-blue-500 hover:text-blue-400 font-semibold"
+                >
+                  Sign up here
+                </button>
+              </p>
+            )}
           </div>
         </div>
       </section>

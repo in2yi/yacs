@@ -1,32 +1,77 @@
 services:
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost:8000
+      - NODE_ENV=development
     volumes:
-      - ./frontend:/app
+      - ./frontend/src:/app/src
+    depends_on:
+      backend:
+        condition: service_healthy
     stdin_open: true
     tty: true
+    networks:
+      - yacs-network
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=yacs
+      - DB_USER=yacs
+      - DB_PASS=yacs
+      - CORS_ORIGINS=http://localhost:3000,http://frontend:3000
+      - SECRET_KEY=your-secret-key-change-in-production
+      - SESSION_SAME_SITE=lax
+      - SESSION_HTTPS_ONLY=false
     volumes:
       - ./backend:/app
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    networks:
+      - yacs-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   db:
     image: postgres:15
     environment:
-      POSTGRES_USER: yacs
-      POSTGRES_PASSWORD: yacs
-      POSTGRES_DB: yacsdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "-U postgres"
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/db-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres && psql -U postgres -d yacs -c 'SELECT 1'"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    networks:
+      - yacs-network
 
 volumes:
   postgres_data:
+
+networks:
+  yacs-network:
+    driver: bridge

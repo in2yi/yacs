@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request, Response, status
+from fastapi.responses import JSONResponse
 
-from schemas.api_models import PreferredSemesterPydantic, UserPydantic, UserProfileUpdatePydantic
+from schemas.api_models import PreferredSemesterPydantic, UserPydantic, UserProfileUpdatePydantic, UserDeletePydantic
 from services import user_service
 
 router = APIRouter(prefix="/api", tags=["Users"])
@@ -9,7 +10,10 @@ router = APIRouter(prefix="/api", tags=["Users"])
 @router.post('/user')
 async def add_user(user: UserPydantic):
     """Create a new user account."""
-    return user_service.create_user(user.dict())
+    result = user_service.create_user(user.dict())
+    if result.get("success"):
+        return JSONResponse(status_code=status.HTTP_201_CREATED, content=result)
+    return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=result)
 
 
 @router.delete('/user')

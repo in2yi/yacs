@@ -98,9 +98,13 @@ def log_user_in(credentials: dict, session: dict, client_ip: str | None = None):
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.email == email).first()
-        if user is None or not verify_password(password, user.password_hash):
+        if user is None:
             _record_failed_attempt(throttle_key)
-            return {"success": False, "status": "error", "code": "invalid_credentials", "message": "Invalid credentials."}
+            return {"success": False, "status": "error", "code": "user_not_found", "message": "No account found with this email. Would you like to sign up?"}
+        
+        if not verify_password(password, user.password_hash):
+            _record_failed_attempt(throttle_key)
+            return {"success": False, "status": "error", "code": "invalid_password", "message": "Invalid email or password."}
 
         # Clear stale session keys before creating authenticated session state.
         session.clear()
