@@ -44,10 +44,11 @@ services:
     networks:
       - yacs-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/').read()"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   db:
     image: postgres:15

@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api", tags=["Users"])
 @router.post('/user')
 async def add_user(user: UserPydantic):
     """Create a new user account."""
-    result = user_service.create_user(user.dict())
+    result = user_service.create_user(user.dict(exclude_none=True))
     if result.get("success"):
         return JSONResponse(status_code=status.HTTP_201_CREATED, content=result)
     return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=result)

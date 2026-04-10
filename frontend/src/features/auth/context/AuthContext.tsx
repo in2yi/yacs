@@ -187,7 +187,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const response = await loginUser(input);
+      console.log("Login response:", response);
+      
       if (response.ok && response.success) {
+        console.log("Login successful");
         setAuthenticated({
           name: response.user?.name ?? input.email,
           email: response.user?.email ?? input.email,
@@ -199,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const mockAccount = findMockAccount(input.email);
       if (mockAccount && mockAccount.password === input.password) {
+        console.log("Mock account login successful");
         setAuthenticated({
           name: mockAccount.name,
           email: mockAccount.email,
@@ -207,23 +211,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
 
+      // Handle non-success responses
+      let errorMsg = "";
+      
       if (response.statusCode === 429 || response.code === "rate_limited") {
-        setError(response.message ?? "Too many failed login attempts. Please wait and try again.");
-        return false;
+        errorMsg = response.message ?? "Too many failed login attempts. Please wait and try again.";
+      } else if (response.statusCode === 401 || response.statusCode === 400) {
+        // User not found or invalid credentials
+        errorMsg = response.message ?? (response.code === "user_not_found" 
+          ? "No account found with this email. Would you like to sign up?"
+          : "Invalid email or password.");
+      } else {
+        errorMsg = response.message ?? "Unable to log in. Please try again.";
       }
-
-      if (response.statusCode === 401) {
-        if (response.code === "user_not_found") {
-          setError(response.message ?? "No account found with this email. Would you like to sign up?");
-        } else {
-          setError(response.message ?? "Invalid email or password.");
-        }
-        return false;
-      }
-
-      setError(response.message ?? "Unable to log in with those credentials.");
+      
+      console.log("Setting login error:", errorMsg, "Status:", response.statusCode, "Code:", response.code);
+      setError(errorMsg);
       return false;
-    } catch {
+    } catch (error) {
+      console.error("Login exception:", error);
       const mockAccount = findMockAccount(input.email);
       if (mockAccount && mockAccount.password === input.password) {
         setAuthenticated({
@@ -234,7 +240,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
 
-      setError("Login failed. Please check your credentials and try again.");
+      const errorMsg = error instanceof Error ? error.message : "Login failed. Please check your credentials and try again.";
+      console.log("Login exception error:", errorMsg);
+      setError(errorMsg);
       return false;
     } finally {
       setIsBusy(false);

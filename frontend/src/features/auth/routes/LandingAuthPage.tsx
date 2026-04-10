@@ -132,6 +132,23 @@ export default function LandingAuthPage() {
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
+              {error && (
+                <div className="mb-4 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+                  <p className="font-semibold mb-1">Error:</p>
+                  <p>{error}</p>
+                  {mode === "login" && error.toLowerCase().includes("no account") && (
+                    <p className="text-xs text-center mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setMode("signup")}
+                        className="text-blue-500 hover:text-blue-400 font-semibold underline"
+                      >
+                        Click here to sign up
+                      </button>
+                    </p>
+                  )}
+                </div>
+              )}
               {mode === "signup" && (
                 <label className="block space-y-1.5">
                   <span className="text-sm font-medium">Full name</span>
@@ -184,26 +201,6 @@ export default function LandingAuthPage() {
                   : "Create account"}
               </button>
             </form>
-
-            {error && (
-              <div className="mt-3 space-y-3">
-                <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-                  {error}
-                </p>
-                {mode === "login" && (
-                  <p className="text-xs text-center text-input-foreground/70">
-                    Don't have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setMode("signup")}
-                      className="text-blue-500 hover:text-blue-400 font-semibold"
-                    >
-                      Sign up here
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
 
             {!error && mode === "login" && (
               <p className="mt-4 text-center text-xs text-input-foreground/70">
