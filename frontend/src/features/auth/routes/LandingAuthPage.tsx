@@ -4,11 +4,16 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 
 type AuthMode = "login" | "signup";
 
+type FieldErrors = {
+  email?: string;
+  password?: string;
+  name?: string;
+};
+
 export default function LandingAuthPage() {
   const navigate = useNavigate();
   const {
     isAuthenticated,
-    isGuest,
     isBusy,
     error,
     clearError,
@@ -20,7 +25,8 @@ export default function LandingAuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [emailError, setEmailError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -30,49 +36,109 @@ export default function LandingAuthPage() {
 
   useEffect(() => {
     clearError();
-    setEmailError(null);
+    setFieldErrors({});
+    setGeneralError(null);
   }, [mode, clearError]);
+
+  const clearFieldError = (field: keyof FieldErrors) => {
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   const validateEmail = (emailValue: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailValue.trim()) {
-      setEmailError("Email is required.");
+      setFieldErrors((prev) => ({ ...prev, email: "Email is required." }));
       return false;
     }
     if (!emailRegex.test(emailValue)) {
-      setEmailError("Please enter a valid email address.");
+      setFieldErrors((prev) => ({ ...prev, email: "Please enter a valid email address." }));
       return false;
     }
-    setEmailError(null);
+    clearFieldError("email");
+    return true;
+  };
+
+  const validatePassword = (passwordValue: string): boolean => {
+    if (!passwordValue) {
+      setFieldErrors((prev) => ({ ...prev, password: "Password is required." }));
+      return false;
+    }
+    if (mode === "signup" && passwordValue.length < 8) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        password: "Password must be at least 8 characters.",
+      }));
+      return false;
+    }
+    clearFieldError("password");
+    return true;
+  };
+
+  const validateName = (nameValue: string): boolean => {
+    if (mode === "signup" && !nameValue.trim()) {
+      setFieldErrors((prev) => ({ ...prev, name: "Full name is required." }));
+      return false;
+    }
+    clearFieldError("name");
     return true;
   };
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
-    if (value.trim()) {
+    if (fieldErrors.email) {
       validateEmail(value);
-    } else {
-      setEmailError(null);
+    }
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (fieldErrors.password) {
+      validatePassword(value);
+    }
+  };
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (fieldErrors.name) {
+      validateName(value);
     }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    
-    if (!validateEmail(email)) {
+    setFieldErrors({});
+    setGeneralError(null);
+    clearError();
+
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+    const isNameValid = mode === "signup" ? validateName(name) : true;
+    if (!isEmailValid || !isPasswordValid || !isNameValid) {
       return;
     }
 
-    console.log("Form submitted, mode:", mode);
-
-    const success =
+    const result =
       mode === "login"
         ? await login({ email, password })
         : await signup({ name, email, password });
 
-    console.log("Signup/login result:", success);
-    if (success) {
+    if (result.success) {
       navigate("/app", { replace: true });
+      return;
+    }
+
+    if (result.fieldErrors) {
+      setFieldErrors(result.fieldErrors);
+    }
+
+    if (result.message) {
+      setGeneralError(result.message);
+    } else if (!result.fieldErrors || Object.keys(result.fieldErrors).length === 0) {
+      setGeneralError("Unable to complete authentication. Please try again.");
     }
   };
 
@@ -80,6 +146,8 @@ export default function LandingAuthPage() {
     continueAsGuest();
     navigate("/app", { replace: true });
   };
+
+  const formError = generalError || error;
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
@@ -132,11 +200,11 @@ export default function LandingAuthPage() {
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
-              {error && (
+              {formError && (
                 <div className="mb-4 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
                   <p className="font-semibold mb-1">Error:</p>
-                  <p>{error}</p>
-                  {mode === "login" && error.toLowerCase().includes("no account") && (
+                  <p>{formError}</p>
+                  {mode === "login" && formError.toLowerCase().includes("sign up") && (
                     <p className="text-xs text-center mt-2">
                       <button
                         type="button"
@@ -149,16 +217,20 @@ export default function LandingAuthPage() {
                   )}
                 </div>
               )}
+
               {mode === "signup" && (
                 <label className="block space-y-1.5">
                   <span className="text-sm font-medium">Full name</span>
                   <input
                     value={name}
-                    onChange={(event) => setName(event.target.value)}
+                    onChange={(event) => handleNameChange(event.target.value)}
                     placeholder="Jane Doe"
                     className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
                     required
                   />
+                  {fieldErrors.name && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">{fieldErrors.name}</p>
+                  )}
                 </label>
               )}
 
@@ -172,8 +244,8 @@ export default function LandingAuthPage() {
                   className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
                   required
                 />
-                {emailError && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">{emailError}</p>
+                {fieldErrors.email && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">{fieldErrors.email}</p>
                 )}
               </label>
 
@@ -182,11 +254,14 @@ export default function LandingAuthPage() {
                 <input
                   type="password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => handlePasswordChange(event.target.value)}
                   placeholder="********"
                   className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
                   required
                 />
+                {fieldErrors.password && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">{fieldErrors.password}</p>
+                )}
               </label>
 
               <button
@@ -202,7 +277,7 @@ export default function LandingAuthPage() {
               </button>
             </form>
 
-            {!error && mode === "login" && (
+            {!formError && mode === "login" && (
               <p className="mt-4 text-center text-xs text-input-foreground/70">
                 Don't have an account?{" "}
                 <button

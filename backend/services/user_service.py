@@ -9,20 +9,48 @@ def create_user(user_data: dict):
     try:
         email = user_data["email"].strip().lower()
         if not email or "@" not in email:
-            return {"success": False, "status": "error", "message": "Invalid email address."}
+            return {
+                "success": False,
+                "status": "error",
+                "code": "invalid_email",
+                "message": "Please enter a valid email address.",
+            }
+
+        if not user_data.get("name") or not str(user_data["name"]).strip():
+            return {
+                "success": False,
+                "status": "error",
+                "code": "missing_name",
+                "message": "Full name is required.",
+            }
 
         password = user_data.get("password", "")
         if len(password) < 8:
-            return {"success": False, "status": "error", "message": "Password must be at least 8 characters."}
+            return {
+                "success": False,
+                "status": "error",
+                "code": "invalid_password",
+                "message": "Password must be at least 8 characters.",
+            }
 
         existing = db.query(User).filter(User.email == email).first()
         if existing is not None:
-            return {"success": False, "status": "error", "message": "Email already in use."}
+            return {
+                "success": False,
+                "status": "error",
+                "code": "email_taken",
+                "message": "An account with this email already exists.",
+            }
 
         try:
             password_hash = hash_password(password)
         except ValueError:
-            return {"success": False, "status": "error", "message": "Password is too long."}
+            return {
+                "success": False,
+                "status": "error",
+                "code": "invalid_password",
+                "message": "Password is too long.",
+            }
 
         preferred_semester_value = user_data.get("preferred_semester") or "Fall 2025"
         new_user = User(

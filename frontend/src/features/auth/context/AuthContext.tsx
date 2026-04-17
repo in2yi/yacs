@@ -34,6 +34,19 @@ type MockAccount = {
   password: string;
 };
 
+type AuthFieldErrors = {
+  email?: string;
+  password?: string;
+  name?: string;
+};
+
+type AuthResult = {
+  success: boolean;
+  message?: string;
+  code?: string;
+  fieldErrors?: AuthFieldErrors;
+};
+
 type AuthContextValue = {
   state: AuthState;
   user: AuthUser | null;
@@ -42,8 +55,8 @@ type AuthContextValue = {
   isBusy: boolean;
   error: string | null;
   clearError: () => void;
-  login: (input: LoginInput) => Promise<boolean>;
-  signup: (input: SignupInput) => Promise<boolean>;
+  login: (input: LoginInput) => Promise<AuthResult>;
+  signup: (input: SignupInput) => Promise<AuthResult>;
   logout: () => Promise<void>;
   continueAsGuest: () => void;
 };
@@ -181,14 +194,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const login = async (input: LoginInput) => {
+  const login = async (input: LoginInput): Promise<AuthResult> => {
     setError(null);
     setIsBusy(true);
 
     try {
       const response = await loginUser(input);
       console.log("Login response:", response);
-      
+
       if (response.ok && response.success) {
         console.log("Login successful");
         setAuthenticated({
@@ -197,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           source: "backend",
           preferredSemester: response.user?.preferred_semester,
         });
-        return true;
+        return { success: true };
       }
 
       const mockAccount = findMockAccount(input.email);
@@ -208,26 +221,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: mockAccount.email,
           source: "local",
         });
-        return true;
+        return { success: true };
       }
 
-      // Handle non-success responses
+      const fieldErrors: AuthFieldErrors = {};
       let errorMsg = "";
-      
+
       if (response.statusCode === 429 || response.code === "rate_limited") {
         errorMsg = response.message ?? "Too many failed login attempts. Please wait and try again.";
+      } else if (response.code === "missing_credentials") {
+        fieldErrors.email = "Email is required.";
+        fieldErrors.password = "Password is required.";
+      } else if (response.code === "user_not_found") {
+        fieldErrors.email = "No account found with this email. Please sign up or try again.";
+      } else if (response.code === "invalid_password") {
+        fieldErrors.password = "That password is incorrect. Please try again.";
       } else if (response.statusCode === 401 || response.statusCode === 400) {
-        // User not found or invalid credentials
-        errorMsg = response.message ?? (response.code === "user_not_found" 
-          ? "No account found with this email. Would you like to sign up?"
-          : "Invalid email or password.");
+        errorMsg = response.message ?? "Invalid email or password.";
       } else {
         errorMsg = response.message ?? "Unable to log in. Please try again.";
       }
-      
+
+      if (!errorMsg && Object.keys(fieldErrors).length === 0) {
+        errorMsg = response.message ?? "Unable to log in. Please try again.";
+      }
+
       console.log("Setting login error:", errorMsg, "Status:", response.statusCode, "Code:", response.code);
-      setError(errorMsg);
-      return false;
+      setError(errorMsg || null);
+      return {
+        success: false,
+        message: errorMsg || undefined,
+        code: response.code,
+        fieldErrors: Object.keys(fieldErrors).length ? fieldErrors : undefined,
+      };
     } catch (error) {
       console.error("Login exception:", error);
       const mockAccount = findMockAccount(input.email);
@@ -237,19 +263,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: mockAccount.email,
           source: "local",
         });
-        return true;
+        return { success: true };
       }
 
-      const errorMsg = error instanceof Error ? error.message : "Login failed. Please check your credentials and try again.";
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : "Login failed. Please check your credentials and try again.";
       console.log("Login exception error:", errorMsg);
       setError(errorMsg);
-      return false;
+      return { success: false, message: errorMsg };
     } finally {
       setIsBusy(false);
     }
   };
 
-  const signup = async (input: SignupInput) => {
+  const signup = async (input: SignupInput): Promise<AuthResult> => {
     setError(null);
     setIsBusy(true);
 
@@ -258,11 +287,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("Signup response:", signupResponse);
       if (!signupResponse.ok || !signupResponse.success) {
         console.log("Setting error:", signupResponse.message);
-        const errorMessage = signupResponse.message ?? "Unable to create account.";
-        setError(errorMessage);
-        window.alert("Signup failed: " + errorMessage);
-        setIsBusy(false);
-        return false;
+        const fieldErrors: AuthFieldErrors = {};
+        let errorMessage = "";
+
+        if (signupResponse.code === "invalid_email") {
+          fieldErrors.email = "Please enter a valid email address.";
+        } else if (signupResponse.code === "email_taken") {
+          fieldErrors.email = "An account with this email already exists. Please log in instead.";
+        } else if (signupResponse.code === "invalid_password") {
+          fieldErrors.password = "Password must be at least 8 characters.";
+        } else if (signupResponse.code === "missing_name") {
+          fieldErrors.name = "Full name is required.";
+        } else {
+          errorMessage = signupResponse.message ?? "Unable to create account.";
+        }
+
+        setError(errorMessage || null);
+        return {
+          success: false,
+          message: errorMessage || signupResponse.message || undefined,
+          code: signupResponse.code,
+          fieldErrors: Object.keys(fieldErrors).length ? fieldErrors : undefined,
+        };
       }
 
       // Signup succeeded, now log in
@@ -285,7 +331,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           source: "backend",
           preferredSemester: loginResponse.user?.preferred_semester,
         });
-        return true;
+        return { success: true };
       }
 
       setAuthenticated({
@@ -293,11 +339,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: input.email,
         source: "local",
       });
-      return true;
+      return { success: true };
     } catch (error) {
       console.log("Signup error:", error);
-      setError(error instanceof Error ? error.message : "Network error during signup.");
-      return false;
+      const errorMessage =
+        error instanceof Error ? error.message : "Network error during signup.";
+      setError(errorMessage);
+      return { success: false, message: errorMessage };
     } finally {
       setIsBusy(false);
     }
