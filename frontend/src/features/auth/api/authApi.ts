@@ -56,15 +56,11 @@ async function sendJson(path: string, init: RequestInit): Promise<AuthApiResult>
   const text = await response.text();
   const payload = text ? (JSON.parse(text) as ApiEnvelope) : {};
 
-  const result = {
+  return {
     ok: response.ok,
     statusCode: response.status,
     ...payload,
   };
-  
-  console.log(`API ${init.method} ${path}:`, { status: response.status, payload, result });
-  
-  return result;
 }
 
 export function loginUser(payload: LoginRequest) {

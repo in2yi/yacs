@@ -137,7 +137,9 @@ export default function LandingAuthPage() {
 
     if (result.message) {
       setGeneralError(result.message);
-    } else if (!result.fieldErrors || Object.keys(result.fieldErrors).length === 0) {
+    } else if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) {
+      setGeneralError("Please fix the highlighted fields and try again.");
+    } else {
       setGeneralError("Unable to complete authentication. Please try again.");
     }
   };
@@ -147,7 +149,8 @@ export default function LandingAuthPage() {
     navigate("/app", { replace: true });
   };
 
-  const formError = generalError || error;
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
+  const formError = generalError || error || (hasFieldErrors ? "Please fix the highlighted fields and try again." : null);
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">

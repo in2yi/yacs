@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useEffect, useRef, useState } from "react";
 import {
   getCurrentSessionUser,
   loginUser,
@@ -53,6 +53,7 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   isGuest: boolean;
   isBusy: boolean;
+  isHydrating: boolean;
   error: string | null;
   clearError: () => void;
   login: (input: LoginInput) => Promise<AuthResult>;
@@ -64,6 +65,7 @@ type AuthContextValue = {
 const STORAGE_AUTH_USER = "yacs.auth.user";
 const STORAGE_GUEST = "yacs.auth.guest";
 const STORAGE_MOCK_ACCOUNTS = "yacs.auth.mockAccounts";
+const INVALID_LOGIN_MESSAGE = "No account matches that email/password.";
 
 function readStorage<T>(key: string): T | null {
   try {
@@ -130,9 +132,11 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initial = getInitialAuth();
   const initialRef = useRef(initial);
+  const shouldHydrateAuth = initial.state !== "guest";
   const [state, setState] = useState<AuthState>(initial.state);
   const [user, setUser] = useState<AuthUser | null>(initial.user);
-  const [isBusy, setIsBusy] = useState(false);
+  const [isBusy, setIsBusy] = useState(shouldHydrateAuth);
+  const [isHydrating, setIsHydrating] = useState(shouldHydrateAuth);
   const [error, setError] = useState<string | null>(null);
 
   const clearAuthenticated = () => {
@@ -155,6 +159,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const hydrateAuthFromServer = async () => {
       const mountedInitial = initialRef.current;
       if (mountedInitial.state === "guest") {
+        setIsHydrating(false);
+        setIsBusy(false);
         return;
       }
 
@@ -182,6 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Keep existing local state on network failures.
       } finally {
         if (!cancelled) {
+          setIsHydrating(false);
           setIsBusy(false);
         }
       }
@@ -200,10 +207,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const response = await loginUser(input);
-      console.log("Login response:", response);
 
       if (response.ok && response.success) {
-        console.log("Login successful");
         setAuthenticated({
           name: response.user?.name ?? input.email,
           email: response.user?.email ?? input.email,
@@ -215,7 +220,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const mockAccount = findMockAccount(input.email);
       if (mockAccount && mockAccount.password === input.password) {
-        console.log("Mock account login successful");
         setAuthenticated({
           name: mockAccount.name,
           email: mockAccount.email,
@@ -233,11 +237,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fieldErrors.email = "Email is required.";
         fieldErrors.password = "Password is required.";
       } else if (response.code === "user_not_found") {
-        fieldErrors.email = "No account found with this email. Please sign up or try again.";
+        errorMsg = response.message ?? INVALID_LOGIN_MESSAGE;
       } else if (response.code === "invalid_password") {
-        fieldErrors.password = "That password is incorrect. Please try again.";
+        errorMsg = response.message ?? INVALID_LOGIN_MESSAGE;
       } else if (response.statusCode === 401 || response.statusCode === 400) {
-        errorMsg = response.message ?? "Invalid email or password.";
+        errorMsg = response.message ?? INVALID_LOGIN_MESSAGE;
       } else {
         errorMsg = response.message ?? "Unable to log in. Please try again.";
       }
@@ -246,7 +250,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         errorMsg = response.message ?? "Unable to log in. Please try again.";
       }
 
-      console.log("Setting login error:", errorMsg, "Status:", response.statusCode, "Code:", response.code);
       setError(errorMsg || null);
       return {
         success: false,
@@ -255,7 +258,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fieldErrors: Object.keys(fieldErrors).length ? fieldErrors : undefined,
       };
     } catch (error) {
-      console.error("Login exception:", error);
       const mockAccount = findMockAccount(input.email);
       if (mockAccount && mockAccount.password === input.password) {
         setAuthenticated({
@@ -270,7 +272,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error instanceof Error
           ? error.message
           : "Login failed. Please check your credentials and try again.";
-      console.log("Login exception error:", errorMsg);
       setError(errorMsg);
       return { success: false, message: errorMsg };
     } finally {
@@ -284,9 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const signupResponse = await signupUser(input);
-      console.log("Signup response:", signupResponse);
       if (!signupResponse.ok || !signupResponse.success) {
-        console.log("Setting error:", signupResponse.message);
         const fieldErrors: AuthFieldErrors = {};
         let errorMessage = "";
 
@@ -314,9 +313,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Signup succeeded, now log in
       try {
         upsertMockAccount(input);
-      } catch (mockError) {
+      } catch {
         // Mock account error is non-fatal
-        console.warn("Mock account upsert failed:", mockError);
       }
 
       const loginResponse = await loginUser({
@@ -341,7 +339,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       return { success: true };
     } catch (error) {
-      console.log("Signup error:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Network error during signup.";
       setError(errorMessage);
@@ -373,14 +370,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearStorage(STORAGE_AUTH_USER);
   };
 
-  const clearError = () => setError(null);
+  const clearError = useCallback(() => setError(null), []);
 
   const value: AuthContextValue = {
     state,
     user,
-    isAuthenticated: state === "authenticated",
+    isAuthenticated: state === "authenticated" && !isHydrating,
     isGuest: state === "guest",
     isBusy,
+    isHydrating,
     error,
     clearError,
     login,
