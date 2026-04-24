@@ -67,7 +67,7 @@ test("shows guest navigation state when the user is browsing as a guest", () => 
 
   expect(screen.getByText(/guest mode/i)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /sign in/i })).toHaveAttribute("href", "/");
-  expect(screen.getByTestId("class-search")).toBeInTheDocument();
+  expect(screen.getByLabelText(/semester/i)).toBeInTheDocument();
 });
 
 test("shows authenticated actions and logs out back to the landing page", async () => {

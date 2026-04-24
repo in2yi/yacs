@@ -95,7 +95,10 @@ export function ClassSearch({
   const dropdown = isOpen ? (
     <div
       ref={dropdownRef}
-      className={cn("w-full overflow-hidden bg-header text-input-foreground")}
+      className={cn(
+        "z-20 w-full overflow-hidden rounded-md border border-border bg-header text-input-foreground shadow-lg",
+        portalEl ? "" : "absolute left-0 top-[calc(100%+0.5rem)]"
+      )}
       id="class-search-dropdown-listbox"
       role="listbox"
       aria-label="Search results"
@@ -176,10 +179,13 @@ export function ClassSearch({
         </div>
       )}
     </div>
-  ) : null;
+      ) : null;
+
+  const renderedDropdown =
+    dropdown && portalEl ? createPortal(dropdown, portalEl) : dropdown;
 
   return (
-    <>
+    <div className="relative w-full">
       <div
         ref={wrapperRef}
         className={cn(
@@ -229,8 +235,8 @@ export function ClassSearch({
           </button>
         )}
       </div>
-      {portalEl && dropdown ? createPortal(dropdown, portalEl) : null}
-    </>
+      {renderedDropdown}
+    </div>
   );
 }
 

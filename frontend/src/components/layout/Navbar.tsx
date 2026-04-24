@@ -1,7 +1,6 @@
 import React from "react";
 import { Bars3Icon } from "@heroicons/react/24/solid";
 import { Separator } from "@/components/ui/Separator";
-import ClassSearch from "@/features/schedule/components/ClassSearch";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -25,7 +24,6 @@ function Navbar() {
     <div className="flex justify-between items-center p-4 text-input-foreground bg-header border-b border-b-border">
     <div className="flex items-center space-x-4">
       <NavLink to="/app" className="text-l font-bold">YACS</NavLink>
-      <ClassSearch />
       <div className="hidden md:flex items-center gap-2">
         <label htmlFor="semester-select" className="text-xs text-input-foreground/70 uppercase tracking-widest">
           Semester
@@ -76,7 +74,6 @@ function Navbar() {
     </div>
     <Bars3Icon className="absolute top-[24px] left-[90%] h-6 w-6 sm:hidden"/>
     </div>
-    <div id="class-search-results-slot" className="w-full"></div>
     </>
   );
 }
