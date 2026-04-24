@@ -10,6 +10,16 @@ type NavLinkProps = {
   children?: React.ReactNode;
 };
 
+let navigateMock = jest.fn();
+
+export function __resetRouterMocks() {
+  navigateMock = jest.fn();
+}
+
+export function __getNavigateMock() {
+  return navigateMock;
+}
+
 export function BrowserRouter({ children }: WithChildren) {
   return <>{children}</>;
 }
@@ -27,12 +37,12 @@ export function Route({ element, children }: RouteProps) {
   );
 }
 
-export function Navigate() {
-  return null;
+export function Navigate({ to }: { to: string }) {
+  return <div data-testid="navigate" data-to={to} />;
 }
 
 export function Outlet() {
-  return null;
+  return <div data-testid="outlet" />;
 }
 
 export function Link({ to, className, children }: LinkProps) {
@@ -54,5 +64,5 @@ export function NavLink({ to, className, children }: NavLinkProps) {
 }
 
 export function useNavigate() {
-  return () => undefined;
+  return navigateMock;
 }
