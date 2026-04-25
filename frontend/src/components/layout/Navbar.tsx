@@ -5,6 +5,7 @@ import ThemeToggle from "@/components/theme/ThemeToggle";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useSchedule } from "@/features/schedule/context/schedule-context";
+import { Spinner } from "@/components/ui/spinner";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -58,9 +59,16 @@ function Navbar() {
           type="button"
           onClick={handleLogout}
           disabled={isBusy}
-          className="rounded border border-border px-3 py-1 text-xs font-semibold hover:bg-muted disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded border border-border px-3 py-1 text-xs font-semibold hover:bg-muted disabled:opacity-50"
         >
-          {isBusy ? "..." : "Log out"}
+          {isBusy ? (
+            <>
+              <Spinner className="size-3" />
+              Logging out...
+            </>
+          ) : (
+            "Log out"
+          )}
         </button>
       ) : (
         <span className="text-xs text-input-foreground/70">

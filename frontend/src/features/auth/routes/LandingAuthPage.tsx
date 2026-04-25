@@ -1,6 +1,7 @@
 import React, { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { Spinner } from "@/components/ui/spinner";
 
 type AuthMode = "login" | "signup";
 
@@ -151,6 +152,13 @@ export default function LandingAuthPage() {
 
   const hasFieldErrors = Object.keys(fieldErrors).length > 0;
   const formError = generalError || error || (hasFieldErrors ? "Please fix the highlighted fields and try again." : null);
+  const isSignupMode = mode === "signup";
+  const submitLabel = isSignupMode ? "Create account" : "Log in to YACS";
+  const busyLabel = isSignupMode ? "Creating your account..." : "Logging you in...";
+  const guestBusyLabel = "Preparing guest access...";
+  const busyDescription = isSignupMode
+    ? "We’re setting up your account and signing you in."
+    : "We’re checking your credentials and loading your workspace.";
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
@@ -173,9 +181,17 @@ export default function LandingAuthPage() {
               <button
                 type="button"
                 onClick={handleContinueAsGuest}
-                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold transition hover:bg-muted"
+                disabled={isBusy}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Continue as Guest
+                {isBusy ? (
+                  <>
+                    <Spinner className="size-4" />
+                    {guestBusyLabel}
+                  </>
+                ) : (
+                  "Continue as Guest"
+                )}
               </button>
             </div>
           </div>
@@ -185,24 +201,36 @@ export default function LandingAuthPage() {
               <button
                 type="button"
                 onClick={() => setMode("login")}
+                disabled={isBusy}
                 className={`w-1/2 rounded-md px-3 py-2 text-sm font-semibold transition ${
                   mode === "login" ? "bg-muted" : "hover:bg-muted/60"
-                }`}
+                } disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 Log in
               </button>
               <button
                 type="button"
                 onClick={() => setMode("signup")}
+                disabled={isBusy}
                 className={`w-1/2 rounded-md px-3 py-2 text-sm font-semibold transition ${
                   mode === "signup" ? "bg-muted" : "hover:bg-muted/60"
-                }`}
+                } disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 Sign up
               </button>
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
+              {isBusy && (
+                <div className="flex items-start gap-3 rounded-lg border border-border/70 bg-background/80 px-3 py-3 text-sm text-input-foreground/80">
+                  <Spinner className="mt-0.5 size-4 text-footer" />
+                  <div>
+                    <p className="font-semibold text-foreground">{busyLabel}</p>
+                    <p>{busyDescription}</p>
+                  </div>
+                </div>
+              )}
+
               {formError && (
                 <div className="mb-4 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
                   <p className="font-semibold mb-1">Error:</p>
@@ -228,6 +256,7 @@ export default function LandingAuthPage() {
                     value={name}
                     onChange={(event) => handleNameChange(event.target.value)}
                     placeholder="Jane Doe"
+                    disabled={isBusy}
                     className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
                     required
                   />
@@ -239,14 +268,15 @@ export default function LandingAuthPage() {
 
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium">Email</span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => handleEmailChange(event.target.value)}
-                  placeholder="you@school.edu"
-                  className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
-                  required
-                />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => handleEmailChange(event.target.value)}
+                    placeholder="you@school.edu"
+                    disabled={isBusy}
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
+                    required
+                  />
                 {fieldErrors.email && (
                   <p className="text-xs text-red-600 dark:text-red-400 mt-1">{fieldErrors.email}</p>
                 )}
@@ -254,14 +284,15 @@ export default function LandingAuthPage() {
 
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium">Password</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => handlePasswordChange(event.target.value)}
-                  placeholder="********"
-                  className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
-                  required
-                />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => handlePasswordChange(event.target.value)}
+                    placeholder="********"
+                    disabled={isBusy}
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-input-foreground outline-none ring-blue-500 transition focus:ring-2"
+                    required
+                  />
                 {fieldErrors.password && (
                   <p className="text-xs text-red-600 dark:text-red-400 mt-1">{fieldErrors.password}</p>
                 )}
@@ -270,13 +301,16 @@ export default function LandingAuthPage() {
               <button
                 type="submit"
                 disabled={isBusy}
-                className="w-full rounded-lg bg-footer px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-footer px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed"
               >
                 {isBusy
-                  ? "Please wait..."
-                  : mode === "login"
-                  ? "Log in to YACS"
-                  : "Create account"}
+                  ? (
+                    <>
+                      <Spinner className="size-4" />
+                      {busyLabel}
+                    </>
+                  )
+                  : submitLabel}
               </button>
             </form>
 
