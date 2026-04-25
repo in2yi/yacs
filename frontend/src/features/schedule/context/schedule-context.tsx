@@ -24,10 +24,13 @@ const SelectionContext = createContext<SelectionCtx | undefined>(undefined);
 type CatalogCtx = {
   catalog: Course[];
   filteredCatalog: Course[];
+  isCatalogLoading: boolean;
+  catalogError: string | null;
   selectedSemester: string;
   availableSemesters: string[];
   setSelectedSemester: (semester: string) => void;
   loadCsv: (path: string) => Promise<void>;
+  reloadCatalog: () => Promise<void>;
 };
 
 const CatalogContext = createContext<CatalogCtx | undefined>(undefined);
@@ -80,6 +83,9 @@ export function ScheduleProvider({ children }: { children: React.ReactNode }) {
   );
 
   const [catalog, setCatalog] = useState<Course[]>([]);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogPath, setCatalogPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -87,13 +93,34 @@ export function ScheduleProvider({ children }: { children: React.ReactNode }) {
   }, [selectedSemester]);
 
   const loadCsv = useCallback(async (path: string) => {
-    const text = await fetchText(path);
+    setCatalogPath(path);
+    setIsCatalogLoading(true);
+    setCatalogError(null);
 
-    startTransition(() => {
-      const parsed = parseCoursesFromCsvText(text);
-      setCatalog(parsed);
-    });
+    try {
+      const text = await fetchText(path);
+
+      startTransition(() => {
+        const parsed = parseCoursesFromCsvText(text);
+        setCatalog(parsed);
+      });
+    } catch (error) {
+      setCatalogError(
+        error instanceof Error ? error.message : "Unable to load the course catalog."
+      );
+      throw error;
+    } finally {
+      setIsCatalogLoading(false);
+    }
   }, []);
+
+  const reloadCatalog = useCallback(async () => {
+    if (!catalogPath) {
+      return;
+    }
+
+    await loadCsv(catalogPath);
+  }, [catalogPath, loadCsv]);
 
   const filteredCatalog = useMemo(() => {
     if (selectedSemester === "All Semesters") {
@@ -114,8 +141,27 @@ export function ScheduleProvider({ children }: { children: React.ReactNode }) {
   }, [catalog, selectedSemester]);
 
   const catalogValue = useMemo<CatalogCtx>(
-    () => ({ catalog, filteredCatalog, selectedSemester, availableSemesters: AVAILABLE_SEMESTERS, setSelectedSemester, loadCsv }),
-    [catalog, filteredCatalog, selectedSemester, setSelectedSemester, loadCsv]
+    () => ({
+      catalog,
+      filteredCatalog,
+      isCatalogLoading,
+      catalogError,
+      selectedSemester,
+      availableSemesters: AVAILABLE_SEMESTERS,
+      setSelectedSemester,
+      loadCsv,
+      reloadCatalog,
+    }),
+    [
+      catalog,
+      filteredCatalog,
+      isCatalogLoading,
+      catalogError,
+      selectedSemester,
+      setSelectedSemester,
+      loadCsv,
+      reloadCatalog,
+    ]
   );
 
   return (
