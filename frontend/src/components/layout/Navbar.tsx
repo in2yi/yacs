@@ -10,7 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 function Navbar() {
   const navigate = useNavigate();
   const { isAuthenticated, isGuest, user, logout, isBusy } = useAuth();
-  const { selectedSemester, setSelectedSemester, availableSemesters } = useSchedule();
+  const { selectedSemester, setSelectedSemester, availableSemesters, isCatalogLoading } = useSchedule();
 
   const link = ({ isActive }: { isActive: boolean }) =>
     `px-3 py-1 rounded hover:text-blue-500 ${isActive ? "text-blue-400" : "text-text"}`;
@@ -26,14 +26,18 @@ function Navbar() {
     <div className="flex items-center space-x-4">
       <NavLink to="/app" className="text-l font-bold">YACS</NavLink>
       <div className="hidden md:flex items-center gap-2">
-        <label htmlFor="semester-select" className="text-xs text-input-foreground/70 uppercase tracking-widest">
-          Semester
-        </label>
+        <div className="flex items-center gap-2">
+          <label htmlFor="semester-select" className="text-xs text-input-foreground/70 uppercase tracking-widest">
+            Semester
+          </label>
+          {isCatalogLoading && <Spinner className="size-3 text-footer" />}
+        </div>
         <select
           id="semester-select"
           value={selectedSemester}
           onChange={(event) => setSelectedSemester(event.target.value)}
-          className="rounded border border-border bg-input px-2 py-1 text-xs text-foreground outline-none"
+          disabled={isCatalogLoading}
+          className="rounded border border-border bg-input px-2 py-1 text-xs text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-70"
         >
           {availableSemesters.map((semester) => (
             <option key={semester} value={semester}>

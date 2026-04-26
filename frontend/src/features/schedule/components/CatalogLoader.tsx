@@ -3,8 +3,10 @@ import { useSchedule } from "../context/schedule-context";
 
 export default function CatalogLoader({ path = "/test-schedule.csv" }: { path?: string }) {
   const { loadCsv } = useSchedule();
+
   useEffect(() => {
-    loadCsv(path).catch(console.error);
+    void loadCsv(path).catch(() => undefined);
   }, [loadCsv, path]);
-  return null; 
+
+  return null;
 }
